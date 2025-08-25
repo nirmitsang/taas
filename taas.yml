@@ -140,3 +140,25 @@ def test_dummy_perf():
     elapsed = end - start
     print(f"Elapsed time for summing 1 million numbers: {elapsed:.4f} seconds")
     assert elapsed < 1
+
+
+
+
+
+
+    stages:
+  - quality
+  - test
+
+# Include the universal TaaS pipeline template
+include:
+  - local: 'taas-universal.yml'
+
+# This is a "dummy" job to make GitLab trigger the universal pipeline
+trigger-taas:
+  stage: test
+  script:
+    - echo "Triggering TaaS pipeline for repo: $REPO_URL, branch: $BRANCH"
+    - echo "Test path: $TEST_PATH, Test type: $TEST_TYPE, Builder image: $BUILDER_IMAGE"
+  # Job will automatically run the universal jobs defined in taas-universal.yml
+
