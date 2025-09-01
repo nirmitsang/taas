@@ -1,0 +1,95 @@
+# .gitlab-ci.yml - This is your complete platform pipeline
+
+stages:
+  - test
+
+run-tests:
+  image: python:3.8
+  stage: test
+  parallel: 5  # Run 5 parallel jobs
+  
+  # Variables that testers fill when triggering pipeline
+  variables:
+    TEST_REPO_URL:
+      description: "GitLab URL of your test repository"
+      value: ""
+    TEST_BRANCH:
+      description: "Branch to test"
+      value: "main"
+    TEST_PATH:
+      description: "Path to tests folder"
+      value: "tests/"
+  
+  before_script:
+    # Install pytest and parallel execution support
+    - pip install pytest pytest-bdd pytest-xdist
+    
+    # Install any requirements if they exist
+    - |
+      if [ -f "test-repo/$TEST_PATH/requirements.txt" ]; then
+        pip install -r test-repo/$TEST_PATH/requirements.txt
+      fi
+  
+  script:
+    # Clone the test repository
+    - git clone -b $TEST_BRANCH $TEST_REPO_URL test-repo
+    
+    # Go to test directory
+    - cd test-repo/$TEST_PATH
+    
+    # Run tests in parallel
+    # CI_NODE_INDEX is the job number (0-4 for 5 parallel jobs)
+    # CI_NODE_TOTAL is total number of parallel jobs (5)
+    - |
+      echo "Running parallel job $((CI_NODE_INDEX + 1)) of $CI_NODE_TOTAL"
+      pytest --junit-xml=../../test-results-$CI_NODE_INDEX.xml \
+             --dist loadscope \
+             --numprocesses auto
+  
+  artifacts:
+    when: always
+    reports:
+      junit: test-results-*.xml
+    paths:
+      - test-results-*.xml
+    expire_in: 1 week
+
+
+
+# Test Execution Platform
+
+## How to Use
+
+### Step 1: Prepare Your Tests
+Ensure your test repository has:
+- Python tests using pytest
+- Optional: `requirements.txt` for dependencies
+- Optional: BDD feature files with pytest-bdd
+
+Example structure:
+
+
+
+
+# sample-tests/tests/test_sample.py
+import pytest
+
+def test_one():
+    assert True
+
+def test_two():
+    assert 1 == 1
+
+def test_three():
+    assert "hello" == "hello"
+
+def test_four():
+    assert [1, 2, 3] == [1, 2, 3]
+
+def test_five():
+    assert {"key": "value"} == {"key": "value"}
+
+# Add more tests to see parallel execution benefit
+@pytest.mark.parametrize("n", range(20))
+def test_many(n):
+    assert n >= 0
