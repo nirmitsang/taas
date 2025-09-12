@@ -2,54 +2,59 @@ import pandas as pd
 import json
 
 # --- Configuration: CHANGE THESE VALUES ---
-excel_file = 'your_data.xlsx'      # Your Excel file name
-output_json_file = 'output.json'   # The name of the JSON file to create
+excel_file = 'your_data.xlsx'
+output_json_file = 'output.json'
+start_row = 1
+end_row = 20 # Example end row
 
-# The 1-based row numbers from your Excel sheet
-start_row = 5                      # The first row you want to include (e.g., row 5)
-end_row = 20                       # The last row you want to include (e.g., row 20)
-
-# The names of the columns you want to use
-col_key = 'a'       # Column for the JSON key
-col_val1 = 'b'      # First part of the JSON value
-col_val2 = 'c'      # Second part of the JSON value
-col_val3 = 'd'      # Third part of the JSON value
+# Define all the columns you'll be using
+col_key = 'a'
+col_val1 = 'b'
+col_val2 = 'c'
+col_val3 = 'd'
+col_val4 = 'e' # Added the 4th value column
 # ------------------------------------------
 
-# Initialize an empty dictionary to store the final JSON data
 json_data = {}
 
-try:
-    # Read the specified columns from the Excel file
-    # We use `usecols` to only load the data we need, which is more efficient
-    df = pd.read_excel(excel_file, usecols=[col_key, col_val1, col_val2, col_val3])
+# List of all columns to read from the Excel file
+all_cols_to_read = [col_key, col_val1, col_val2, col_val3, col_val4]
 
-    # Select the specified range of rows.
-    # We use `iloc` which is 0-indexed, so we subtract 1 from the start_row.
-    # The end_row in the slice is exclusive, so it works perfectly.
+try:
+    df = pd.read_excel(excel_file, usecols=all_cols_to_read)
     df_slice = df.iloc[start_row - 1 : end_row]
 
-    # Iterate over each row in our selected data slice
     for index, row in df_slice.iterrows():
-        # Get the key from the first column
-        key = str(row[col_key])
+        # --- THIS IS THE MODIFIED KEY LOGIC ---
+        # Read the raw value from the key column
+        key_raw = str(row[col_key])
         
-        # Create the concatenated value string, ensuring all parts are strings
-        value = f"{str(row[col_val1])}.{str(row[col_val2])}.{str(row[col_val3])}"
-        
-        # Add the new key-value pair to our dictionary
-        json_data[key] = value
+        # Split the string on the first dot and take the part after it
+        # If no dot, it uses the original key_raw value
+        key = key_raw.split('.', 1)[1] if '.' in key_raw else key_raw
+        # ---------------------------------------
 
-    # Write the dictionary to a JSON file
-    # `indent=4` makes the JSON file human-readable (pretty-printed)
+        # Define the columns that should be joined for the value
+        value_columns = [col_val1, col_val2, col_val3, col_val4] 
+
+        # Build a list of values, but only if they are not empty/blank
+        parts = [str(row[col]) for col in value_columns if pd.notna(row[col]) and str(row[col]).strip() != '']
+        
+        # Join the valid parts with a dot
+        value = ".".join(parts)
+
+        # Add the new key-value pair, but only if the value isn't empty
+        if value:
+            json_data[key] = value
+
     with open(output_json_file, 'w') as f:
         json.dump(json_data, f, indent=4)
 
-    print(f"✅ Successfully created '{output_json_file}' with data from rows {start_row} to {end_row}.")
+    print(f"✅ Successfully created '{output_json_file}'. Keys were trimmed and blank entries were skipped.")
 
 except FileNotFoundError:
     print(f"❌ Error: The file '{excel_file}' was not found.")
 except KeyError as e:
-    print(f"❌ Error: A column was not found in the Excel file. Please check your column names. Details: {e}")
+    print(f"❌ Error: A column was not found. Please check your column names. Details: {e}")
 except Exception as e:
     print(f"An unexpected error occurred: {e}")
